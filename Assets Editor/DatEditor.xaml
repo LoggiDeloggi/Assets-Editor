@@ -176,6 +176,9 @@
                     <Label Content="Light" VerticalAlignment="Center"/>
                     <ToggleButton x:Name="DarkModeToggle" Margin="5,0,5,0" Checked="DarkModeToggle_Checked" Unchecked="DarkModeToggle_Checked"/>
                     <Label Content="Dark" VerticalAlignment="Center"/>
+                    <Label Content="Animation" VerticalAlignment="Center"/>
+                    <ToggleButton x:Name="AnimationToggle" Margin="5,0,5,0" IsChecked="True" Checked="AnimationToggle_Checked" Unchecked="AnimationToggle_Checked"/>
+                    <Label Content="Off" VerticalAlignment="Center"/>
                 </StackPanel>
                 <TabControl Grid.Row="1" x:Name="ViewTabControl" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="10,0,0,10">
                     <TabItem Header="Properties">

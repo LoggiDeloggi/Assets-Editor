@@ -276,6 +276,8 @@ namespace Assets_Editor
                         }
 
                     }
+
+
                 }
             }
         }
@@ -2449,16 +2451,17 @@ namespace Assets_Editor
 
         private void ExportObject_PreviewMouseLeftButtonDown(object sender, RoutedEventArgs e)
         {
-            if(int.Parse(AddExportObjectCounter.Badge.ToString() ?? "0") == 0)
+            if (int.Parse(AddExportObjectCounter.Badge.ToString() ?? "0") == 0)
             {
                 StatusBar.MessageQueue.Enqueue($"Export list is empty.", null, null, null, false, true, TimeSpan.FromSeconds(2));
                 return;
-            }    
+            }
 
             System.Windows.Forms.FolderBrowserDialog exportPath = new System.Windows.Forms.FolderBrowserDialog();
             if (exportPath.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                string fullPath = Path.Combine(exportPath.SelectedPath, "Appearances.aec");
+                string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+                string fullPath = Path.Combine(exportPath.SelectedPath, $"Appearances_{timestamp}.aec");
                 var output = File.Create(fullPath);
                 exportObjects.WriteTo(output);
                 output.Close();
@@ -2468,6 +2471,7 @@ namespace Assets_Editor
                 StatusBar.MessageQueue.Enqueue($"Successfully exported objects.", null, null, null, false, true, TimeSpan.FromSeconds(2));
             }
         }
+
 
         private void AddExportObject_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -2548,9 +2552,11 @@ namespace Assets_Editor
             showList.Storyboard = storyboard;
         }
 
+        // Propriedade que controla se as animações estão habilitadas
+        private static bool isAnimationEnabled = true;
+        // Método existente modificado para respeitar a configuração de animação
         private void AnimateSelectedListItem(ShowList showList)
         {
-            // Find the ListViewItem for the selected item
             var listViewItem = ObjListView.ItemContainerGenerator.ContainerFromItem(showList) as ListViewItem;
             if (listViewItem != null)
             {
@@ -2575,10 +2581,19 @@ namespace Assets_Editor
 
                     try
                     {
-                        for (int i = 0; i < appearance.FrameGroup[0].SpriteInfo.SpriteId.Count; i++)
+                        // Carregamos apenas o primeiro frame se a animação estiver desabilitada
+                        int framesToLoad = isAnimationEnabled ? appearance.FrameGroup[0].SpriteInfo.SpriteId.Count : 1;
+
+                        for (int i = 0; i < framesToLoad; i++)
                         {
-                            int index = GetSpriteIndex(appearance.FrameGroup[0], 0, (ObjectMenu.SelectedIndex == 0 || ObjectMenu.SelectedIndex == 2) ? (int)Math.Min(2, appearance.FrameGroup[0].SpriteInfo.PatternWidth - 1) : 0, ObjectMenu.SelectedIndex == 2 ? (int)Math.Min(1, appearance.FrameGroup[0].SpriteInfo.PatternHeight - 1) : 0, 0, i);
-                            BitmapImage imageFrame = Utils.BitmapToBitmapImage(MainWindow.getSpriteStream((int)appearance.FrameGroup[0].SpriteInfo.SpriteId[index]));
+                            int index = GetSpriteIndex(appearance.FrameGroup[0], 0,
+                                (ObjectMenu.SelectedIndex == 0 || ObjectMenu.SelectedIndex == 2) ?
+                                    (int)Math.Min(2, appearance.FrameGroup[0].SpriteInfo.PatternWidth - 1) : 0,
+                                ObjectMenu.SelectedIndex == 2 ?
+                                    (int)Math.Min(1, appearance.FrameGroup[0].SpriteInfo.PatternHeight - 1) : 0,
+                                0, i);
+                            BitmapImage imageFrame = Utils.BitmapToBitmapImage(MainWindow.getSpriteStream(
+                                (int)appearance.FrameGroup[0].SpriteInfo.SpriteId[index]));
                             imageFrames.Add(imageFrame);
                         }
                     }
@@ -2587,10 +2602,52 @@ namespace Assets_Editor
                         MainWindow.Log("Error animation for sprite " + appearance.Id + ", crash prevented.");
                     }
 
-                    StartSpriteAnimation(imageControl, frameRate, showList, imageFrames);
+                    // Se a animação estiver desativada ou só temos um frame, configuramos apenas a imagem estática
+                    if (!isAnimationEnabled && imageFrames.Count > 0)
+                    {
+                        // Pare qualquer animação existente
+                        if (showList.Storyboard != null)
+                        {
+                            showList.Storyboard.Stop();
+                            showList.Storyboard = null;
+                        }
+
+                        // Configure apenas o primeiro frame
+                        imageControl.Source = imageFrames[0];
+                    }
+                    else if (imageFrames.Count > 0)
+                    {
+                        // Inicie a animação normalmente
+                        StartSpriteAnimation(imageControl, frameRate, showList, imageFrames);
+                    }
                 }
             }
         }
+
+        private void AnimationToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            isAnimationEnabled = (bool)AnimationToggle.IsChecked;
+
+            // Atualiza todas as sprites visíveis
+            VirtualizingStackPanel panel = Utils.FindVisualChild<VirtualizingStackPanel>(ObjListView);
+            if (ObjListView.Items.Count > 0 && panel != null)
+            {
+                int offset = (int)panel.VerticalOffset;
+                for (int i = 0; i < ObjListView.Items.Count; i++)
+                {
+                    if (i >= offset && i < Math.Min(offset + 20, ObjListView.Items.Count))
+                    {
+                        ShowList item = (ShowList)ObjListView.Items[i];
+                        AnimateSelectedListItem(item);
+                    }
+                }
+            }
+
+            MainWindow.Log(isAnimationEnabled ?
+                "Animações ativadas." :
+                "Animações pausadas para economizar recursos do sistema.", "Info");
+        }
+
 
         private void About_Click(object sender, RoutedEventArgs e)
         {
